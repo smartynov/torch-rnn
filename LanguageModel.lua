@@ -123,12 +123,20 @@ end
 
 function LM:encode_string(s)
   local encoded = torch.LongTensor(#s)
+  local token = ''
+  local ei = 1
   for i = 1, #s do
-    local token = s:sub(i, i)
+    token = token .. s:sub(i, i)
     local idx = self.token_to_idx[token]
-    assert(idx ~= nil, 'Got invalid idx')
-    encoded[i] = idx
+    if idx ~= nil then
+      encoded[ei] = idx
+      token = ''
+      ei = ei + 1
+    elseif #token == 4 or i == #s then
+      assert(idx ~= nil, 'Got invalid idx')
+    end
   end
+  encoded:resize(ei-1)
   return encoded
 end
 
@@ -184,7 +192,7 @@ function LM:sample(kwargs)
     scores = w.new(1, 1, self.vocab_size):fill(1)
     first_t = 1
   end
-  
+
   local _, next_char = nil, nil
   for t = first_t, T do
     if sample == 0 then
