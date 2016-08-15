@@ -4,7 +4,7 @@ import argparse, json, os
 import numpy as np
 import h5py
 import codecs
-
+import re
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_txt', default='data/tiny-shakespeare.txt')
@@ -14,27 +14,37 @@ parser.add_argument('--val_frac', type=float, default=0.1)
 parser.add_argument('--test_frac', type=float, default=0.1)
 parser.add_argument('--quiet', action='store_true')
 parser.add_argument('--encoding', default='utf-8')
+parser.add_argument('--tokenize', default='char')
 args = parser.parse_args()
 
 
 if __name__ == '__main__':
   if args.encoding == 'bytes': args.encoding = None
 
+  def line_to_tokens(line):
+    if args.tokenize == 'word':
+      result = re.findall(ur"(?u) ?[\w']+|[,:;]|[.!?] ?", line)
+    else:
+      result = list(line)
+    # print result
+    return result
+
   # First go the file once to see how big it is and to build the vocab
   token_to_idx = {}
   total_size = 0
   with codecs.open(args.input_txt, 'r', args.encoding) as f:
     for line in f:
-      total_size += len(line)
-      for char in line:
-        if char not in token_to_idx:
-          token_to_idx[char] = len(token_to_idx) + 1
+      tokens = line_to_tokens(line)
+      total_size += len(tokens)
+      for token in tokens:
+        if token not in token_to_idx:
+          token_to_idx[token] = len(token_to_idx) + 1
 
   # Now we can figure out the split sizes
   val_size = int(args.val_frac * total_size)
   test_size = int(args.test_frac * total_size)
   train_size = total_size - val_size - test_size
- 
+
   if not args.quiet:
     print 'Total vocabulary size: %d' % len(token_to_idx)
     print 'Total tokens in file: %d' % total_size
@@ -60,8 +70,8 @@ if __name__ == '__main__':
   split_idx, cur_idx = 0, 0
   with codecs.open(args.input_txt, 'r', args.encoding) as f:
     for line in f:
-      for char in line:
-        splits[split_idx][cur_idx] = token_to_idx[char]
+      for token in line_to_tokens(line):
+        splits[split_idx][cur_idx] = token_to_idx[token]
         cur_idx += 1
         if cur_idx == splits[split_idx].size:
           split_idx += 1
